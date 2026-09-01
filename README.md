@@ -38,6 +38,12 @@ you save.
   what's currently there.
 - **Delete books** — the owner (or an admin) can remove a single copy; an admin
   can delete a whole title and all its copies from the catalog.
+- **⭐ Wishlist** — add books the family would *like* to have. Everyone sees
+  what's wanted (and by whom) before buying, and any wish that's already on the
+  shelf is flagged "owned" with who holds it — so you fill gaps instead of
+  double-buying.
+- **Request badge** — the nav shows a count on **Requests** whenever something is
+  waiting on you: a borrow to approve or send, or an incoming book to confirm.
 - **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
   approves and sends; you confirm you received it; mark it returned when it goes
   back.
@@ -109,9 +115,10 @@ becomes the admin automatically).
 
    ```bash
    DATABASE_URL="postgres://…" node scripts/add-transfers.mjs
+   DATABASE_URL="postgres://…" node scripts/add-wishlist.mjs
    ```
 
-   (It's idempotent — safe to run more than once.)
+   (Both are idempotent — safe to run more than once.)
 
 ---
 
@@ -201,8 +208,10 @@ app/
   books/[id]/          book detail: copies, holders, borrow, home library, delete
   catalog/             searchable family catalog with All/Mine/Others/Home tabs
   my-books/            books with you — multi-select + bulk send with details
+  wishlist/            books the family wants (with already-owned detection)
   requests/            incoming + outgoing borrow requests
   members/             who's in the library and how much they hold
+  members/[id]/        one member's shelf + multi-select bulk borrow requests
   reading/             your reading list
 components/             small client widgets
 lib/
@@ -214,6 +223,8 @@ lib/
 scripts/
   make-admin.mjs       promote a user to admin
   add-transfers.mjs    create the transfers table (idempotent)
+  add-wishlist.mjs     create the wishlist table (idempotent)
+  seed-demo.mjs        seed 3 demo members + books and self-test every operation
 drizzle/               generated SQL migrations
 ```
 

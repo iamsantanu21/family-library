@@ -164,6 +164,22 @@ export const transfers = pgTable("transfers", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// A wishlist item = a book someone WANTS the family to have (may not be owned
+// yet). Lets everyone see what's wanted before buying, so we don't miss gaps
+// or double-buy.
+export const wishlist = pgTable("wishlist", {
+  id: id(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  authors: text("authors"),
+  isbn13: text("isbn13"),
+  note: text("note"),
+  coverUrl: text("cover_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ---- relations (enable db.query ... { with }) ----
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
@@ -173,6 +189,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   readingLogs: many(readingLogs),
   transfersSent: many(transfers, { relationName: "transferFrom" }),
   transfersReceived: many(transfers, { relationName: "transferTo" }),
+  wishlist: many(wishlist),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -226,6 +243,10 @@ export const loanRequestsRelations = relations(loanRequests, ({ one }) => ({
   }),
 }));
 
+export const wishlistRelations = relations(wishlist, ({ one }) => ({
+  user: one(users, { fields: [wishlist.userId], references: [users.id] }),
+}));
+
 export const readingLogsRelations = relations(readingLogs, ({ one }) => ({
   user: one(users, {
     fields: [readingLogs.userId],
@@ -241,3 +262,4 @@ export type User = typeof users.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Copy = typeof copies.$inferSelect;
 export type Transfer = typeof transfers.$inferSelect;
+export type WishlistItem = typeof wishlist.$inferSelect;

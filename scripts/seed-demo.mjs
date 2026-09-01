@@ -49,6 +49,7 @@ async function cleanup() {
   await sql`delete from books where isbn13 like ${DEMO_ISBN_LIKE}`;
   if (ids.length) {
     await sql`delete from copies where owner_id in ${sql(ids)} or holder_id in ${sql(ids)}`;
+    await sql`delete from wishlist where user_id in ${sql(ids)}`;
     await sql`delete from sessions where user_id in ${sql(ids)}`;
     await sql`delete from reading_logs where user_id in ${sql(ids)}`;
     await sql`delete from users where id in ${sql(ids)}`;
@@ -135,6 +136,19 @@ async function returned(id, copyId, ownerId) {
 const cancel = (id) => sql`update loan_requests set status='CANCELLED' where id=${id}`;
 const deleteCopy = (id) => sql`delete from copies where id=${id}`;
 const deleteTitle = (id) => sql`delete from books where id=${id}`;
+// wishlist
+async function addWishlist(userId, w) {
+  const id = randomUUID();
+  await sql`insert into wishlist (id, user_id, title, authors, isbn13, note)
+            values (${id}, ${userId}, ${w.title}, ${w.authors}, ${w.isbn ?? null}, ${w.note ?? null})`;
+  return id;
+}
+const removeWishlist = (id) => sql`delete from wishlist where id=${id}`;
+const norm = (s) => (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+async function titleOwned(title) {
+  const rows = await sql`select title from books`;
+  return rows.some((r) => norm(r.title) === norm(title));
+}
 // admin/user ops
 const approveUser = (id) => sql`update users set status='ACTIVE' where id=${id}`;
 const rejectUser = (id) => sql`update users set status='REJECTED' where id=${id}`;
@@ -180,6 +194,13 @@ async function summary() {
   if (!trs.length) console.log("  (none)");
   for (const t of trs)
     console.log(`  • ${t.fromn} → ${t.ton} : “${t.title}” [${t.courier || "-"} / ${t.tracking || "-"} / ${t.note || "-"}]`);
+
+  const wl = await sql`
+    select w.title, u.name as who from wishlist w join users u on u.id=w.user_id
+    where u.email like ${DEMO_EMAIL_LIKE} order by w.created_at`;
+  console.log("Wishlist:");
+  if (!wl.length) console.log("  (none)");
+  for (const w of wl) console.log(`  • ${w.who} wants “${w.title}”`);
 }
 
 // ---- main ----
@@ -285,6 +306,18 @@ try {
   check("Alchemist book gone", !(await sql`select id from books where id=${B1.bookId}`)[0]);
   check("Alchemist copy cascade-deleted", !(await copyRow(B1.copyId)));
   check("Alchemist transfer cascade-deleted", (await sql`select count(*)::int n from transfers where copy_id=${B1.copyId}`)[0].n === 0);
+
+  step("Wishlist: Bob wants 'Clean Code' (already owned) → flagged owned; Alice wants 'The Midnight Library' (not owned) → wanted");
+  await addWishlist(bob, { title: "Clean Code", authors: "Robert C. Martin" });
+  const aliceWish = await addWishlist(alice, { title: "The Midnight Library", authors: "Matt Haig", note: "paperback is fine" });
+  const nWish = (await sql`select count(*)::int n from wishlist w join users u on u.id=w.user_id where u.email like ${DEMO_EMAIL_LIKE}`)[0].n;
+  check("2 wishlist items added", nWish === 2);
+  check("'Clean Code' is detected as already owned", (await titleOwned("Clean Code")) === true);
+  check("'The Midnight Library' is NOT owned (still wanted)", (await titleOwned("The Midnight Library")) === false);
+
+  step("Wishlist: Alice removes her item");
+  await removeWishlist(aliceWish);
+  check("Alice's wishlist item removed", (await sql`select id from wishlist where id=${aliceWish}`).length === 0);
 
   await summary();
   console.log(`\n================ RESULT: ${pass} passed, ${fail} failed ================`);

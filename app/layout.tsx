@@ -1,12 +1,35 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { inArray } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { loanRequests } from "@/lib/schema";
 
 export const metadata: Metadata = {
   title: "Family Library",
   description: "A shared library for books our family owns, reads, and swaps.",
 };
+
+// How many requests are waiting on THIS user to do something:
+//  - as the holder: someone asked to borrow (PENDING) or you approved but
+//    haven't sent (APPROVED)
+//  - as the borrower: it's been sent and you haven't confirmed receipt (SHIPPED)
+async function actionableCount(userId: string): Promise<number> {
+  try {
+    const active = await db.query.loanRequests.findMany({
+      where: inArray(loanRequests.status, ["PENDING", "APPROVED", "SHIPPED"]),
+      with: { copy: true },
+    });
+    return active.filter((r) =>
+      r.status === "SHIPPED"
+        ? r.requesterId === userId
+        : r.copy.holderId === userId
+    ).length;
+  } catch {
+    return 0;
+  }
+}
 
 export default async function RootLayout({
   children,
@@ -14,6 +37,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
+  const pending = user ? await actionableCount(user.id) : 0;
 
   return (
     <html lang="en">
@@ -34,8 +58,19 @@ export default async function RootLayout({
                 <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/add">
                   Add book
                 </Link>
-                <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/requests">
+                <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/wishlist">
+                  Wishlist
+                </Link>
+                <Link
+                  className="relative rounded px-2 py-1 hover:bg-slate-100"
+                  href="/requests"
+                >
                   Requests
+                  {pending > 0 && (
+                    <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+                      {pending}
+                    </span>
+                  )}
                 </Link>
                 <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/members">
                   Members
