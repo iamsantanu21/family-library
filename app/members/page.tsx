@@ -36,18 +36,29 @@ export default async function MembersPage() {
       <div className="grid gap-3 sm:grid-cols-2">
         {members.map((m) => (
           <div key={m.id} className="card">
-            <div>
-              <div className="font-medium">
-                {m.name}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <Link
+                  href={m.id === user.id ? "/my-books" : `/members/${m.id}`}
+                  className="font-medium hover:text-brand-700"
+                >
+                  {m.name}
+                </Link>
                 {m.id === user.id && (
                   <span className="ml-1 text-xs text-brand-600">(you)</span>
                 )}
+                <div className="text-xs text-slate-500">
+                  {m.location || "location not set"} · holds{" "}
+                  <strong>{m.heldCopies.length}</strong> · owns{" "}
+                  {m.ownedCopies.length}
+                </div>
               </div>
-              <div className="text-xs text-slate-500">
-                {m.location || "location not set"} · holds{" "}
-                <strong>{m.heldCopies.length}</strong> · owns{" "}
-                {m.ownedCopies.length}
-              </div>
+              <Link
+                href={m.id === user.id ? "/my-books" : `/members/${m.id}`}
+                className="whitespace-nowrap text-xs text-brand-600 hover:underline"
+              >
+                {m.id === user.id ? "My books →" : "Books & borrow →"}
+              </Link>
             </div>
             {m.heldCopies.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-1">

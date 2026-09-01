@@ -41,6 +41,9 @@ you save.
 - **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
   approves and sends; you confirm you received it; mark it returned when it goes
   back.
+- **Browse a member & bulk-request** — open any member from the **Members** page
+  to see everything they're currently holding, then tick one or several of their
+  books and send all the borrow requests at once (with an optional message).
 - **Reading log** — mark books as want-to-read / reading / finished, rate them,
   and see who else has read them.
 - **👑 Admin** — approve new members, change roles (admin ↔ normal), and remove
