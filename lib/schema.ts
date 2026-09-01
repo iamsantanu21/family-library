@@ -146,6 +146,24 @@ export const readingLogs = pgTable(
   })
 );
 
+// A transfer records a physical handoff of a copy: from one holder to another
+// member, or to/from the Home Library. It's the "sending details" log.
+export const transfers = pgTable("transfers", {
+  id: id(),
+  copyId: text("copy_id")
+    .notNull()
+    .references(() => copies.id, { onDelete: "cascade" }),
+  fromUserId: text("from_user_id")
+    .notNull()
+    .references(() => users.id),
+  toUserId: text("to_user_id").references(() => users.id), // null when to Home Library
+  toHome: boolean("to_home").notNull().default(false),
+  courier: text("courier"),
+  tracking: text("tracking"),
+  note: text("note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // ---- relations (enable db.query ... { with }) ----
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
@@ -153,6 +171,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   heldCopies: many(copies, { relationName: "holderCopies" }),
   requests: many(loanRequests, { relationName: "requesterReqs" }),
   readingLogs: many(readingLogs),
+  transfersSent: many(transfers, { relationName: "transferFrom" }),
+  transfersReceived: many(transfers, { relationName: "transferTo" }),
 }));
 
 export const sessionsRelations = relations(sessions, ({ one }) => ({
@@ -177,6 +197,21 @@ export const copiesRelations = relations(copies, ({ one, many }) => ({
     relationName: "holderCopies",
   }),
   requests: many(loanRequests),
+  transfers: many(transfers),
+}));
+
+export const transfersRelations = relations(transfers, ({ one }) => ({
+  copy: one(copies, { fields: [transfers.copyId], references: [copies.id] }),
+  from: one(users, {
+    fields: [transfers.fromUserId],
+    references: [users.id],
+    relationName: "transferFrom",
+  }),
+  to: one(users, {
+    fields: [transfers.toUserId],
+    references: [users.id],
+    relationName: "transferTo",
+  }),
 }));
 
 export const loanRequestsRelations = relations(loanRequests, ({ one }) => ({
@@ -205,3 +240,4 @@ export const readingLogsRelations = relations(readingLogs, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type Book = typeof books.$inferSelect;
 export type Copy = typeof copies.$inferSelect;
+export type Transfer = typeof transfers.$inferSelect;

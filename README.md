@@ -22,13 +22,22 @@ you save.
   editable.
 - **No duplicates** — when you add (or before you buy) the app warns you if the
   title is already on the family shelf and tells you who has it.
-- **Catalog** — search every title the family owns, with copy counts and
-  availability.
+- **Catalog with filters** — search every title the family owns, and switch
+  between **All books**, **With me**, **With others**, and **🏠 Home Library**
+  to see exactly where things are.
 - **Who has what, where** — each physical copy shows its current holder and
   their city. Members show how many books they're holding.
+- **My Books — bulk send** — a page listing everything currently with you.
+  Tick one or several and **send them in one go** to the Home Library or to
+  another member, with **sending details** (courier, tracking number, a note).
+  The handoff is immediate — the recipient becomes the new holder right away and
+  the details are saved to the book's history.
 - **🏠 Home Library** — a shared shelf. Add a book (you hold it), read it, then
-  tap **Send to Home Library** when you ship it to the family shelf. Anyone can
-  **Take from Home Library**. The dashboard shows what's currently there.
+  **Send it to the Home Library** when you ship it to the family shelf. Anyone
+  can **Take from Home Library** into their own collection. The dashboard shows
+  what's currently there.
+- **Delete books** — the owner (or an admin) can remove a single copy; an admin
+  can delete a whole title and all its copies from the catalog.
 - **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
   approves and sends; you confirm you received it; mark it returned when it goes
   back.
@@ -92,6 +101,14 @@ becomes the admin automatically).
 4. Deploy. Vercel gives you a URL and auto-redeploys on every push to `main`.
 5. First time only: run `npm run db:push` locally against the same
    `DATABASE_URL` so the production database has the tables.
+6. After pulling updates that change the schema, apply them to the live
+   database. For the sending/transfers feature:
+
+   ```bash
+   DATABASE_URL="postgres://…" node scripts/add-transfers.mjs
+   ```
+
+   (It's idempotent — safe to run more than once.)
 
 ---
 
@@ -160,6 +177,14 @@ The **owner** never changes (whoever bought it). The **holder** changes as the
 book travels — that's how the app always knows where a book physically is. A book
 can also live at the **🏠 Home Library** instead of with a person.
 
+### Sending books (My Books)
+
+Borrowing is a *request* flow (ask → approve → receive). **Sending** is the
+direct flow: on the **My Books** page you pick books you already hold and hand
+them off immediately — to the Home Library or to any active member. You can
+attach a **courier**, **tracking number**, and a **note**; each send is recorded
+in the `transfers` table and shown on the book's page as its latest handoff.
+
 ---
 
 ## 🗂️ Project structure
@@ -170,20 +195,22 @@ app/
                        requests, reading, admin
   admin/               admin page: approve / roles / delete members
   add/                 add-a-book screen (barcode / photo / search)
-  books/[id]/          book detail: copies, holders, borrow, home library
-  catalog/             searchable family catalog
+  books/[id]/          book detail: copies, holders, borrow, home library, delete
+  catalog/             searchable family catalog with All/Mine/Others/Home tabs
+  my-books/            books with you — multi-select + bulk send with details
   requests/            incoming + outgoing borrow requests
   members/             who's in the library and how much they hold
   reading/             your reading list
 components/             small client widgets
 lib/
-  schema.ts            database tables (Drizzle)
+  schema.ts            database tables (Drizzle) incl. transfers log
   db.ts                database connection
   auth.ts              passwords + login sessions
-  books.ts             Google Books lookup + vision-AI cover reading
+  books.ts             Google Books + Open Library lookup, vision-AI cover reading
   homeLibrary.ts       the shared Home Library account
 scripts/
   make-admin.mjs       promote a user to admin
+  add-transfers.mjs    create the transfers table (idempotent)
 drizzle/               generated SQL migrations
 ```
 

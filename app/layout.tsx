@@ -28,6 +28,9 @@ export default async function RootLayout({
                 <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/catalog">
                   Catalog
                 </Link>
+                <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/my-books">
+                  My books
+                </Link>
                 <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/add">
                   Add book
                 </Link>

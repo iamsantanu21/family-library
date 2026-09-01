@@ -81,3 +81,34 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Could not update copy." }, { status: 500 });
   }
 }
+
+// DELETE /api/copies  { copyId }
+// Remove a single physical copy. Allowed for the copy's owner or an admin.
+// Requests and transfer logs for the copy cascade away with it.
+export async function DELETE(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { copyId } = (await req.json()) as { copyId: string };
+    if (!copyId) {
+      return NextResponse.json({ error: "Invalid input." }, { status: 400 });
+    }
+
+    const copy = await db.query.copies.findFirst({ where: eq(copies.id, copyId) });
+    if (!copy) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+    if (copy.ownerId !== user.id && user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Only the owner or an admin can delete this copy." },
+        { status: 403 }
+      );
+    }
+
+    await db.delete(copies).where(eq(copies.id, copyId));
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("copy delete error", err);
+    return NextResponse.json({ error: "Could not delete copy." }, { status: 500 });
+  }
+}

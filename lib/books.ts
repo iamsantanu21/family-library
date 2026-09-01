@@ -67,19 +67,109 @@ function withKey(url: string): string {
   return key ? `${url}&key=${key}` : url;
 }
 
+// ---- Google Books (primary source) ----
+
+async function googleIsbn(isbn: string): Promise<BookInfo | null> {
+  try {
+    const url = withKey(`${GOOGLE_BASE}?q=isbn:${encodeURIComponent(isbn)}`);
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { items?: GoogleVolume[] };
+    const item = data.items?.[0];
+    return item ? normalizeVolume(item) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function googleSearch(query: string, limit: number): Promise<BookInfo[]> {
+  try {
+    const url = withKey(
+      `${GOOGLE_BASE}?q=${encodeURIComponent(query)}&maxResults=${limit}`
+    );
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { items?: GoogleVolume[] };
+    return (data.items || [])
+      .map(normalizeVolume)
+      .filter((b): b is BookInfo => b !== null);
+  } catch {
+    return [];
+  }
+}
+
+// ---- Open Library (free fallback — no key, not IP-throttled like Google) ----
+
+type OpenLibraryDoc = {
+  title?: string;
+  author_name?: string[];
+  isbn?: string[];
+  cover_i?: number;
+  first_publish_year?: number;
+  publisher?: string[];
+  number_of_pages_median?: number;
+  subject?: string[];
+};
+
+function normalizeOpenLibrary(d: OpenLibraryDoc): BookInfo | null {
+  if (!d.title) return null;
+  const isbns = d.isbn || [];
+  const isbn13 = isbns.find((i) => i.replace(/[^0-9Xx]/g, "").length === 13) || null;
+  const isbn10 = isbns.find((i) => i.replace(/[^0-9Xx]/g, "").length === 10) || null;
+  const cover = d.cover_i
+    ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`
+    : isbn13 || isbn10
+    ? `https://covers.openlibrary.org/b/isbn/${isbn13 || isbn10}-M.jpg`
+    : null;
+  return {
+    title: d.title,
+    authors: d.author_name?.join(", ") || null,
+    isbn13,
+    isbn10,
+    publisher: d.publisher?.[0] || null,
+    publishedDate: d.first_publish_year ? String(d.first_publish_year) : null,
+    description: null,
+    pageCount: d.number_of_pages_median ?? null,
+    categories: d.subject?.slice(0, 3).join(", ") || null,
+    language: null,
+    coverUrl: cover,
+  };
+}
+
+const OL_FIELDS =
+  "title,author_name,isbn,cover_i,first_publish_year,publisher,number_of_pages_median,subject";
+
+async function openLibrarySearch(query: string, limit: number): Promise<BookInfo[]> {
+  try {
+    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(
+      query
+    )}&limit=${limit}&fields=${OL_FIELDS}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { docs?: OpenLibraryDoc[] };
+    return (data.docs || [])
+      .map(normalizeOpenLibrary)
+      .filter((b): b is BookInfo => b !== null);
+  } catch {
+    return [];
+  }
+}
+
+async function openLibraryIsbn(isbn: string): Promise<BookInfo | null> {
+  const results = await openLibrarySearch(`isbn:${isbn}`, 1);
+  return results[0] || null;
+}
+
+// ---- Public API: try Google first, fall back to Open Library ----
+
 export async function lookupByIsbn(isbnRaw: string): Promise<BookInfo | null> {
   const isbn = isbnRaw.replace(/[^0-9Xx]/g, "");
   if (!isbn) return null;
-  const url = withKey(`${GOOGLE_BASE}?q=isbn:${encodeURIComponent(isbn)}`);
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { items?: GoogleVolume[] };
-  const item = data.items?.[0];
-  if (!item) return null;
-  const info = normalizeVolume(item);
-  // Make sure the ISBN we searched is recorded even if Google omits it.
-  if (info && !info.isbn13 && isbn.length === 13) info.isbn13 = isbn;
-  if (info && !info.isbn10 && isbn.length === 10) info.isbn10 = isbn;
+  const info = (await googleIsbn(isbn)) || (await openLibraryIsbn(isbn));
+  if (info) {
+    if (!info.isbn13 && isbn.length === 13) info.isbn13 = isbn;
+    if (!info.isbn10 && isbn.length === 10) info.isbn10 = isbn;
+  }
   return info;
 }
 
@@ -88,15 +178,10 @@ export async function searchGoogleBooks(
   limit = 6
 ): Promise<BookInfo[]> {
   if (!query.trim()) return [];
-  const url = withKey(
-    `${GOOGLE_BASE}?q=${encodeURIComponent(query)}&maxResults=${limit}`
-  );
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { items?: GoogleVolume[] };
-  return (data.items || [])
-    .map(normalizeVolume)
-    .filter((b): b is BookInfo => b !== null);
+  const google = await googleSearch(query, limit);
+  if (google.length > 0) return google;
+  // Google returned nothing (often throttled from cloud IPs) — use Open Library.
+  return openLibrarySearch(query, limit);
 }
 
 // ---- Vision AI: read title/author (and ISBN if visible) from a cover photo ----

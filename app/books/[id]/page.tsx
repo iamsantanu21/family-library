@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { eq, asc, inArray } from "drizzle-orm";
+import { eq, asc, desc, inArray } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { books, copies, loanRequests } from "@/lib/schema";
+import { books, copies, loanRequests, transfers } from "@/lib/schema";
 import BorrowButton from "@/components/BorrowButton";
 import ReadingControls from "@/components/ReadingControls";
 import CopyActionButton from "@/components/CopyActionButton";
+import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,11 @@ export default async function BookPage({ params }: { params: { id: string } }) {
           requests: {
             where: inArray(loanRequests.status, [...ACTIVE]),
             with: { requester: true },
+          },
+          transfers: {
+            orderBy: desc(transfers.createdAt),
+            limit: 1,
+            with: { from: true, to: true },
           },
         },
       },
@@ -65,6 +71,17 @@ export default async function BookPage({ params }: { params: { id: string } }) {
               {book.description}
             </p>
           )}
+          {user.role === "ADMIN" && (
+            <div className="pt-3">
+              <DeleteButton
+                kind="title"
+                bookId={book.id}
+                label="🗑 Delete this title"
+                confirmText={`Delete "${book.title}" and all ${book.copies.length} copy(ies) for everyone?`}
+                redirectTo="/catalog"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -78,6 +95,8 @@ export default async function BookPage({ params }: { params: { id: string } }) {
             const activeReq = c.requests[0];
             const iHold = c.holderId === user.id && !c.atHome;
             const iRequested = activeReq?.requesterId === user.id;
+            const latest = c.transfers[0];
+            const canDelete = c.ownerId === user.id || user.role === "ADMIN";
             return (
               <div
                 key={c.id}
@@ -108,6 +127,15 @@ export default async function BookPage({ params }: { params: { id: string } }) {
                     {c.condition ? ` · ${c.condition}` : ""}
                     {c.notes ? ` · ${c.notes}` : ""}
                   </div>
+                  {latest && (
+                    <div className="mt-1 text-xs text-slate-500">
+                      ✈️ Last sent by {latest.from.name} to{" "}
+                      {latest.toHome ? "🏠 Home Library" : latest.to?.name}
+                      {latest.courier ? ` · ${latest.courier}` : ""}
+                      {latest.tracking ? ` · #${latest.tracking}` : ""}
+                      {latest.note ? ` · “${latest.note}”` : ""}
+                    </div>
+                  )}
                 </div>
 
                 {c.atHome ? (
@@ -151,6 +179,14 @@ export default async function BookPage({ params }: { params: { id: string } }) {
                     </>
                   ) : (
                     <BorrowButton copyId={c.id} />
+                  )}
+                  {canDelete && (
+                    <DeleteButton
+                      kind="copy"
+                      copyId={c.id}
+                      label="🗑 Delete copy"
+                      confirmText="Remove this copy?"
+                    />
                   )}
                 </div>
               </div>
