@@ -6,22 +6,40 @@ import { verifyPassword, createSession } from "@/lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const { username, password } = await req.json();
-    if (!username || !password) {
+    const { email, password } = await req.json();
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Enter your username and password." },
+        { error: "Enter your email and password." },
         { status: 400 }
       );
     }
 
-    const uname = String(username).trim().toLowerCase();
+    const mail = String(email).trim().toLowerCase();
     const user = await db.query.users.findFirst({
-      where: eq(users.username, uname),
+      where: eq(users.email, mail),
     });
-    if (!user || !(await verifyPassword(String(password), user.passwordHash))) {
+    if (
+      !user ||
+      user.isSystem ||
+      !user.passwordHash ||
+      !(await verifyPassword(String(password), user.passwordHash))
+    ) {
       return NextResponse.json(
-        { error: "Wrong username or password." },
+        { error: "Wrong email or password." },
         { status: 401 }
+      );
+    }
+
+    if (user.status === "PENDING") {
+      return NextResponse.json(
+        { error: "Your account is waiting for an admin to approve it. 🕓" },
+        { status: 403 }
+      );
+    }
+    if (user.status === "REJECTED") {
+      return NextResponse.json(
+        { error: "Your access to this library has been turned off. Please contact the family admin." },
+        { status: 403 }
       );
     }
 

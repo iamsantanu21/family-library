@@ -10,9 +10,12 @@ const SESSION_DAYS = 30;
 
 export type SessionUser = {
   id: string;
-  username: string;
+  username: string | null;
+  email: string | null;
   name: string;
   location: string | null;
+  role: "ADMIN" | "MEMBER";
+  status: "PENDING" | "ACTIVE" | "REJECTED";
 };
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -59,7 +62,15 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!session || session.expiresAt < new Date()) return null;
 
   const u = session.user;
-  return { id: u.id, username: u.username, name: u.name, location: u.location };
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    name: u.name,
+    location: u.location,
+    role: u.role,
+    status: u.status,
+  };
 }
 
 export async function requireUser(): Promise<SessionUser> {

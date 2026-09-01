@@ -4,13 +4,21 @@ import { db } from "@/lib/db";
 import { users } from "@/lib/schema";
 import { hashPassword, createSession } from "@/lib/auth";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export async function POST(req: Request) {
   try {
-    const { name, username, password, location, inviteCode } = await req.json();
+    const { name, email, password, location, inviteCode } = await req.json();
 
-    if (!name || !username || !password) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: "Name, username and password are required." },
+        { error: "Name, email and password are required." },
+        { status: 400 }
+      );
+    }
+    if (!EMAIL_RE.test(String(email))) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
         { status: 400 }
       );
     }
@@ -29,29 +37,38 @@ export async function POST(req: Request) {
       );
     }
 
-    const uname = String(username).trim().toLowerCase();
+    const mail = String(email).trim().toLowerCase();
     const existing = await db.query.users.findFirst({
-      where: eq(users.username, uname),
+      where: eq(users.email, mail),
     });
     if (existing) {
       return NextResponse.json(
-        { error: "That username is already taken." },
+        { error: "An account with that email already exists." },
         { status: 409 }
       );
     }
+
+    // First real (non-system) member becomes the admin and is active now.
+    const existingCount = await db.$count(users, eq(users.isSystem, false));
+    const isFirst = existingCount === 0;
 
     const [user] = await db
       .insert(users)
       .values({
         name: String(name).trim(),
-        username: uname,
+        email: mail,
         location: location ? String(location).trim() : null,
         passwordHash: await hashPassword(String(password)),
+        role: isFirst ? "ADMIN" : "MEMBER",
+        status: isFirst ? "ACTIVE" : "PENDING",
       })
       .returning();
 
-    await createSession(user.id);
-    return NextResponse.json({ ok: true });
+    if (isFirst) {
+      await createSession(user.id);
+      return NextResponse.json({ ok: true, role: "ADMIN" });
+    }
+    return NextResponse.json({ ok: true, pending: true });
   } catch (err) {
     console.error("register error", err);
     return NextResponse.json(

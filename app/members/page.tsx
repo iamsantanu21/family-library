@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { asc, desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { users, copies } from "@/lib/schema";
@@ -12,6 +12,7 @@ export default async function MembersPage() {
   if (!user) redirect("/login");
 
   const members = await db.query.users.findMany({
+    where: eq(users.isSystem, false),
     orderBy: asc(users.name),
     with: {
       ownedCopies: { columns: { id: true } },
@@ -43,8 +44,9 @@ export default async function MembersPage() {
                 )}
               </div>
               <div className="text-xs text-slate-500">
-                {m.location || "location not set"} · owns {m.ownedCopies.length}{" "}
-                book(s)
+                {m.location || "location not set"} · holds{" "}
+                <strong>{m.heldCopies.length}</strong> · owns{" "}
+                {m.ownedCopies.length}
               </div>
             </div>
             {m.heldCopies.length > 0 && (

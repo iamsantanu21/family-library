@@ -11,6 +11,19 @@ save.
 
 ---
 
+## 🆕 In this version
+
+- **Sign in with Google or email + password.** (Google needs a Google Cloud
+  OAuth client — set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+  `NEXT_PUBLIC_GOOGLE_ENABLED=true`. Without them, email/password still works.)
+- **Home Library 🏠** — a shared shelf. Add a book (you hold it), read it, then
+  tap **Send to Home Library** when you ship it to the family shelf. Anyone can
+  **Take from Home Library**. The dashboard shows what's currently there.
+- **Admin controls** — approve members, **make admin / make normal**, and
+  **delete** accounts. Deleting a member keeps their Home-Library books and
+  removes the rest.
+- **Held counts** — every member shows how many books they're holding.
+
 ## ✨ What it does
 
 - **Accounts** — everyone gets a username + password. An optional family invite
@@ -103,6 +116,16 @@ If no key is present, the app simply skips AI and lets you type the details — 
 field is editable anyway.
 
 ---
+
+## 👑 Members & admin approval
+
+- The **first person to register becomes the admin** and is active right away.
+- Everyone after them needs the **family invite code** to sign up, and then
+  starts as **pending** — they can't log in until the admin approves them.
+- The admin gets an **Admin** page (top nav) listing everyone waiting, with
+  **Approve**, **Turn off access**, and **Make admin** buttons.
+- Already created an account before this feature existed? Promote it once with:
+  `DATABASE_URL="postgres://…" node scripts/make-admin.mjs <your-username>`
 
 ## 🔁 How borrowing works (the states)
 

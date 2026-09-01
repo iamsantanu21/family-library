@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { books, copies, loanRequests } from "@/lib/schema";
 import BorrowButton from "@/components/BorrowButton";
 import ReadingControls from "@/components/ReadingControls";
-import CopyStatusToggle from "@/components/CopyStatusToggle";
+import CopyActionButton from "@/components/CopyActionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +76,7 @@ export default async function BookPage({ params }: { params: { id: string } }) {
         <div className="space-y-2">
           {book.copies.map((c) => {
             const activeReq = c.requests[0];
-            const iHold = c.holderId === user.id;
+            const iHold = c.holderId === user.id && !c.atHome;
             const iRequested = activeReq?.requesterId === user.id;
             return (
               <div
@@ -85,32 +85,70 @@ export default async function BookPage({ params }: { params: { id: string } }) {
               >
                 <div className="min-w-0 flex-1">
                   <div className="text-sm">
-                    <span className="font-medium">{c.holder.name}</span>
-                    {c.holder.location && (
-                      <span className="text-slate-500"> · {c.holder.location}</span>
+                    {c.atHome ? (
+                      <span className="font-medium">🏠 Home Library</span>
+                    ) : (
+                      <>
+                        <span className="font-medium">{c.holder.name}</span>
+                        {c.holder.location && (
+                          <span className="text-slate-500">
+                            {" "}
+                            · {c.holder.location}
+                          </span>
+                        )}
+                        <span className="text-slate-400">
+                          {" "}
+                          has it{c.ownerId !== c.holderId ? " (borrowed)" : ""}
+                        </span>
+                      </>
                     )}
-                    <span className="text-slate-400">
-                      {" "}
-                      has it{c.ownerId !== c.holderId ? " (borrowed)" : ""}
-                    </span>
                   </div>
                   <div className="text-xs text-slate-400">
-                    Owned by {c.owner.name}
+                    Added by {c.owner.name}
                     {c.condition ? ` · ${c.condition}` : ""}
                     {c.notes ? ` · ${c.notes}` : ""}
                   </div>
                 </div>
 
-                <StatusBadge status={c.status} />
+                {c.atHome ? (
+                  <span className="badge bg-emerald-100 text-emerald-700">
+                    in home library
+                  </span>
+                ) : (
+                  <StatusBadge status={c.status} />
+                )}
 
-                <div className="flex items-center gap-2">
-                  {activeReq ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {c.atHome ? (
+                    <CopyActionButton
+                      copyId={c.id}
+                      action="takeHome"
+                      label="Take from Home Library"
+                    />
+                  ) : activeReq ? (
                     <span className="text-xs text-slate-500">
                       {iRequested ? "You" : activeReq.requester.name} requested ·{" "}
                       {activeReq.status.toLowerCase()}
                     </span>
                   ) : iHold ? (
-                    <CopyStatusToggle copyId={c.id} status={c.status} />
+                    <>
+                      <CopyActionButton
+                        copyId={c.id}
+                        action={c.status === "READING" ? "available" : "reading"}
+                        label={
+                          c.status === "READING"
+                            ? "Mark available"
+                            : "I'm reading this"
+                        }
+                        ghost
+                      />
+                      <CopyActionButton
+                        copyId={c.id}
+                        action="sendHome"
+                        label="🏠 Send to Home Library"
+                        ghost
+                      />
+                    </>
                   ) : (
                     <BorrowButton copyId={c.id} />
                   )}

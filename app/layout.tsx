@@ -37,6 +37,14 @@ export default async function RootLayout({
                 <Link className="rounded px-2 py-1 hover:bg-slate-100" href="/members">
                   Members
                 </Link>
+                {user.role === "ADMIN" && (
+                  <Link
+                    className="rounded px-2 py-1 font-medium text-brand-700 hover:bg-slate-100"
+                    href="/admin"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <span className="ml-2 hidden text-slate-400 sm:inline">|</span>
                 <span className="ml-1 hidden text-slate-600 sm:inline">
                   {user.name}

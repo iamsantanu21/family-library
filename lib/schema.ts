@@ -4,6 +4,7 @@ import {
   pgEnum,
   text,
   integer,
+  boolean,
   timestamp,
   uniqueIndex,
   index,
@@ -35,14 +36,24 @@ export const readStatus = pgEnum("read_status", [
   "READING",
   "FINISHED",
 ]);
+export const userRole = pgEnum("user_role", ["ADMIN", "MEMBER"]);
+export const userStatus = pgEnum("user_status", [
+  "PENDING",
+  "ACTIVE",
+  "REJECTED",
+]);
 
 // ---- tables ----
 export const users = pgTable("users", {
   id: id(),
-  username: text("username").notNull().unique(),
+  email: text("email").unique(),
+  username: text("username").unique(),
   name: text("name").notNull(),
   location: text("location"),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"), // null for Google-only accounts
+  role: userRole("role").notNull().default("MEMBER"),
+  status: userStatus("status").notNull().default("PENDING"),
+  isSystem: boolean("is_system").notNull().default(false), // the Home Library account
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -88,6 +99,7 @@ export const copies = pgTable("copies", {
     .notNull()
     .references(() => users.id),
   status: copyStatus("status").notNull().default("AVAILABLE"),
+  atHome: boolean("at_home").notNull().default(false), // physically in the Home Library
   condition: text("condition"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

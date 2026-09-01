@@ -60,11 +60,12 @@ export default async function CatalogPage({
             const available = b.copies.filter((c) => c.status === "AVAILABLE");
             const holders = Array.from(
               new Set(
-                b.copies.map(
-                  (c) =>
-                    `${c.holder.name}${
-                      c.holder.location ? ` (${c.holder.location})` : ""
-                    }`
+                b.copies.map((c) =>
+                  c.atHome
+                    ? "🏠 Home Library"
+                    : `${c.holder.name}${
+                        c.holder.location ? ` (${c.holder.location})` : ""
+                      }`
                 )
               )
             );
