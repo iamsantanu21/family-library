@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { copies, users, transfers } from "@/lib/schema";
 import { getHomeLibraryId } from "@/lib/homeLibrary";
+import { notifySentToMember } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,8 @@ export async function POST(req: Request) {
 
     // Resolve the destination holder.
     let toUserId: string;
+    let destName = "";
+    let destEmail: string | null = null;
     if (toHome) {
       toUserId = homeId;
     } else {
@@ -67,6 +70,8 @@ export async function POST(req: Request) {
         );
       }
       toUserId = dest.id;
+      destName = dest.name;
+      destEmail = dest.email;
     }
 
     // Only copies the sender actually holds, and not already at Home, can move.
@@ -113,6 +118,26 @@ export async function POST(req: Request) {
         note,
       }))
     );
+
+    // Notify the recipient member (best-effort; not for Home Library sends).
+    if (!toHome) {
+      try {
+        const rows = await db.query.copies.findMany({
+          where: inArray(copies.id, movable),
+          with: { book: true },
+        });
+        await notifySentToMember(
+          new URL(req.url).origin,
+          destEmail,
+          destName,
+          user.name,
+          rows.map((r) => r.book.title),
+          { courier, tracking, note }
+        );
+      } catch (e) {
+        console.error("notify transfer error", e);
+      }
+    }
 
     return NextResponse.json({ ok: true, moved: movable.length });
   } catch (err) {

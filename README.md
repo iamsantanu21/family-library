@@ -44,6 +44,10 @@ you save.
   double-buying.
 - **Request badge** — the nav shows a count on **Requests** whenever something is
   waiting on you: a borrow to approve or send, or an incoming book to confirm.
+- **📧 Email notifications** (optional) — when set up with a Resend key, the app
+  emails people on the moments that matter: a borrow request comes in, a request
+  is approved / sent / returned, a book is sent straight to you, or a new
+  wishlist item is added. Leave the key unset and the app just sends nothing.
 - **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
   approves and sends; you confirm you received it; mark it returned when it goes
   back.
@@ -134,6 +138,8 @@ becomes the admin automatically).
 | `VISION_PROVIDER`            |   ➖     | `anthropic` or `openai` for cover-photo AI.                          |
 | `ANTHROPIC_API_KEY`          |   ➖     | Needed if `VISION_PROVIDER=anthropic`.                               |
 | `OPENAI_API_KEY`             |   ➖     | Needed if `VISION_PROVIDER=openai`.                                  |
+| `RESEND_API_KEY`             |   ➖     | Enables email notifications (via [Resend](https://resend.com)).      |
+| `EMAIL_FROM`                 |   ➖     | Sender for those emails, e.g. `Family Library <you@yourdomain.com>`. |
 
 Only `DATABASE_URL` is required — barcode scanning, ISBN and name search all work
 without any keys. Add the Google and vision keys to enable those extras.
@@ -152,6 +158,22 @@ http://localhost:3000/api/auth/google/callback
 While the Google app is in "testing" mode, only emails added as **test users**
 (in the OAuth consent screen) can use the Google button — everyone else signs in
 with email + password.
+
+### Setting up email notifications
+
+1. Create a free account at [resend.com](https://resend.com) and copy an **API
+   key** (API Keys → Create).
+2. Add `RESEND_API_KEY` to your environment variables (Vercel → Settings →
+   Environment Variables), then redeploy.
+3. **Sender address:** to email the whole family, verify a domain you own in
+   Resend (Domains → Add) and set `EMAIL_FROM` to an address at that domain
+   (e.g. `Family Library <library@yourdomain.com>`). Until you verify a domain,
+   the default test sender `onboarding@resend.dev` only delivers to the email on
+   your own Resend account — fine for trying it out.
+
+Emails are sent for: a borrow request received, a request approved / sent /
+returned, a book sent straight to a member, and a new wishlist item. Members
+only get emails if their account has an email address.
 
 ---
 

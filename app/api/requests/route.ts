@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { copies, loanRequests } from "@/lib/schema";
+import { notifyBorrowRequested } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,34 @@ export async function POST(req: Request) {
         message,
       }))
     );
+
+    // Notify each affected holder (best-effort; never blocks the request).
+    try {
+      const rows = await db.query.copies.findMany({
+        where: inArray(copies.id, toCreate),
+        with: { holder: true, book: true },
+      });
+      const byHolder = new Map<
+        string,
+        { holderEmail: string | null; holderName: string; titles: string[] }
+      >();
+      for (const c of rows) {
+        const g = byHolder.get(c.holderId) || {
+          holderEmail: c.holder.email,
+          holderName: c.holder.name,
+          titles: [],
+        };
+        g.titles.push(c.book.title);
+        byHolder.set(c.holderId, g);
+      }
+      await notifyBorrowRequested(
+        new URL(req.url).origin,
+        user.name,
+        Array.from(byHolder.values())
+      );
+    } catch (e) {
+      console.error("notify borrow error", e);
+    }
 
     return NextResponse.json({
       ok: true,

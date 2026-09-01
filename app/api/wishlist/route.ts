@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { wishlist } from "@/lib/schema";
+import { wishlist, users } from "@/lib/schema";
+import { notifyWishlistAdded } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,27 @@ export async function POST(req: Request) {
         coverUrl: b.coverUrl?.trim() || null,
       })
       .returning();
+
+    // Tell the rest of the active family (best-effort).
+    try {
+      const family = await db.query.users.findMany({
+        where: and(
+          eq(users.isSystem, false),
+          eq(users.status, "ACTIVE"),
+          ne(users.id, user.id)
+        ),
+        columns: { email: true },
+      });
+      await notifyWishlistAdded(
+        new URL(req.url).origin,
+        user.name,
+        item.title,
+        item.authors,
+        family.map((f) => f.email)
+      );
+    } catch (e) {
+      console.error("notify wishlist error", e);
+    }
 
     return NextResponse.json({ ok: true, id: item.id });
   } catch (err) {

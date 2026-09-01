@@ -3,6 +3,12 @@ import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { copies, loanRequests, requestStatus } from "@/lib/schema";
+import {
+  notifyRequestApproved,
+  notifyRequestDeclined,
+  notifyRequestShipped,
+  notifyRequestReturned,
+} from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +25,25 @@ export async function POST(
 
   const request = await db.query.loanRequests.findFirst({
     where: eq(loanRequests.id, params.id),
-    with: { copy: true },
+    with: {
+      copy: { with: { book: true, owner: true, holder: true } },
+      requester: true,
+    },
   });
   if (!request) {
     return NextResponse.json({ error: "Request not found." }, { status: 404 });
   }
 
   const copy = request.copy;
+  const base = new URL(req.url).origin;
+  const title = copy.book.title;
+  const notify = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+    } catch (e) {
+      console.error("notify request error", e);
+    }
+  };
   const isHolder = copy.holderId === user.id;
   const isRequester = request.requesterId === user.id;
   const isOwner = copy.ownerId === user.id;
@@ -38,11 +56,17 @@ export async function POST(
       case "approve":
         assert(isHolder && request.status === "PENDING", "Only the holder can approve a pending request.");
         await setStatus("APPROVED");
+        await notify(() =>
+          notifyRequestApproved(base, request.requester.email, request.requester.name, user.name, title)
+        );
         break;
 
       case "decline":
         assert(isHolder && ["PENDING", "APPROVED"].includes(request.status), "Only the holder can decline.");
         await setStatus("DECLINED");
+        await notify(() =>
+          notifyRequestDeclined(base, request.requester.email, request.requester.name, user.name, title)
+        );
         break;
 
       case "ship":
@@ -51,6 +75,9 @@ export async function POST(
           await tx.update(loanRequests).set({ status: "SHIPPED" }).where(eq(loanRequests.id, request.id));
           await tx.update(copies).set({ status: "LENT" }).where(eq(copies.id, copy.id));
         });
+        await notify(() =>
+          notifyRequestShipped(base, request.requester.email, request.requester.name, user.name, title)
+        );
         break;
 
       case "received":
@@ -76,6 +103,9 @@ export async function POST(
             .set({ holderId: copy.ownerId, status: "AVAILABLE" })
             .where(eq(copies.id, copy.id));
         });
+        await notify(() =>
+          notifyRequestReturned(base, copy.owner.email, copy.owner.name, title)
+        );
         break;
 
       case "cancel":
