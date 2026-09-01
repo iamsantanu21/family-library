@@ -8,14 +8,17 @@ const globalForDb = globalThis as unknown as {
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  // Don't throw at import time during build; queries will surface the error.
-  console.warn("DATABASE_URL is not set.");
+  // Don't throw at import time (keeps `next build` working); the first query
+  // will surface a clear error instead.
+  console.warn("DATABASE_URL is not set — database queries will fail.");
 }
 
 // Reuse one postgres client across hot reloads / serverless invocations.
+// The placeholder is intentionally non-connecting; a real DATABASE_URL is
+// always provided in every environment (local .env and hosted).
 const client =
   globalForDb.client ??
-  postgres(connectionString ?? "postgres://localhost:5432/postgres", {
+  postgres(connectionString ?? "postgres://unset", {
     max: 1,
     prepare: false, // friendlier to serverless / connection poolers
   });

@@ -1,165 +1,190 @@
 # 📚 Family Library
 
-A small web app so a family spread across different cities can share one library.
-Everyone adds the books they buy, and the app keeps track of **what we own, who
-has each copy, where it is, who has read it, and who wants to borrow it** — so no
-one accidentally buys the same book twice.
+A shared library web app for a family spread across different cities. Everyone
+adds the books they buy, and the app keeps track of **what we own, who has each
+copy, where it is, who has read it, and who wants to borrow it** — so nobody
+accidentally buys the same book twice.
+
+**🌐 Live app:** https://family-library-ten.vercel.app
 
 Add a book by **scanning its barcode**, **snapping the cover** (AI reads the
-title/author), or **searching by name** — every field stays editable before you
-save.
+title & author), or **searching by name** — every field stays editable before
+you save.
 
 ---
 
-## 🆕 In this version
+## ✨ Features
 
-- **Sign in with Google or email + password.** (Google needs a Google Cloud
-  OAuth client — set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
-  `NEXT_PUBLIC_GOOGLE_ENABLED=true`. Without them, email/password still works.)
-- **Home Library 🏠** — a shared shelf. Add a book (you hold it), read it, then
+- **Sign in with Google or email + password.** New members need the family
+  invite code, then wait for an admin to approve them.
+- **Add a book 3 ways** — 📷 barcode scan → ISBN lookup, 🖼️ cover photo → AI
+  identification, or 🔎 search by title/author. Details auto-fill and stay fully
+  editable.
+- **No duplicates** — when you add (or before you buy) the app warns you if the
+  title is already on the family shelf and tells you who has it.
+- **Catalog** — search every title the family owns, with copy counts and
+  availability.
+- **Who has what, where** — each physical copy shows its current holder and
+  their city. Members show how many books they're holding.
+- **🏠 Home Library** — a shared shelf. Add a book (you hold it), read it, then
   tap **Send to Home Library** when you ship it to the family shelf. Anyone can
   **Take from Home Library**. The dashboard shows what's currently there.
-- **Admin controls** — approve members, **make admin / make normal**, and
-  **delete** accounts. Deleting a member keeps their Home-Library books and
-  removes the rest.
-- **Held counts** — every member shows how many books they're holding.
-
-## ✨ What it does
-
-- **Accounts** — everyone gets a username + password. An optional family invite
-  code keeps strangers out.
-- **Add a book 3 ways** — barcode scan (camera) → ISBN lookup, cover photo → AI
-  identification, or plain text search. Details auto-fill and are fully editable.
-- **No duplicates** — when you add (or before you buy) the app warns you if the
-  title is already on the family shelf, and tells you who has it.
-- **Catalog** — search every title the family owns, see how many copies exist and
-  which are available.
-- **Who has what, where** — each physical copy shows its current holder and their
-  city.
-- **Borrow / exchange** — ask to borrow a copy; the holder approves and marks it
-  sent; you confirm you received it (it becomes yours to hold); mark it returned
-  when you send it back.
+- **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
+  approves and sends; you confirm you received it; mark it returned when it goes
+  back.
 - **Reading log** — mark books as want-to-read / reading / finished, rate them,
   and see who else has read them.
+- **👑 Admin** — approve new members, change roles (admin ↔ normal), and remove
+  accounts.
 
 ---
 
 ## 🧱 Tech
 
-- **Next.js 14** (App Router, React, TypeScript) — one app for UI + API
-- **Drizzle ORM** + **PostgreSQL** — data (no binary engines; deploys anywhere)
-- **Tailwind CSS** — styling
-- **@zxing** — in-browser barcode scanning
-- **Anthropic / OpenAI vision** (optional) — read a cover photo into book details
-- **Google Books API** — free book metadata (no key needed)
+| Layer      | Choice                                             |
+| ---------- | -------------------------------------------------- |
+| Framework  | **Next.js 14** (App Router, React, TypeScript)     |
+| Database   | **PostgreSQL** via **Drizzle ORM** (no binary engine) |
+| Styling    | **Tailwind CSS**                                   |
+| Auth       | Cookie sessions (bcrypt) + **Google OAuth**        |
+| Scanning   | **@zxing** in-browser barcode reader               |
+| Book data  | **Google Books API** (free, no key needed)         |
+| Cover AI   | **Anthropic** or **OpenAI** vision (optional)      |
+| Hosting    | **Vercel** (Hobby / free tier)                     |
+
+The app is environment-agnostic — it reads its own URL from the incoming
+request, so it runs on the live domain, a preview URL, or localhost with no code
+changes.
 
 ---
 
-## 🚀 Quick start (run it on your computer)
+## 🚀 Run it locally
 
-**1. Get a free Postgres database.** Easiest is [Neon](https://neon.tech) — make a
+**1. Get a Postgres database.** Free option: [Neon](https://neon.tech) — create a
 project and copy the connection string. (Supabase works too.)
 
-**2. Set up environment variables.** Copy the example and fill it in:
+**2. Configure environment variables:**
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set at least `DATABASE_URL`. (Vision AI is optional — see below.)
+Open `.env` and set at least `DATABASE_URL`. See the table below.
 
-**3. Install and create the tables:**
+**3. Install, create tables, run:**
 
 ```bash
 npm install
-npm run db:push        # creates all tables in your database
+npm run db:push     # creates all tables in your database
+npm run dev         # http://localhost:3000
 ```
 
-**4. Run it:**
+Open the app, click **Join**, and create the first account (the first member
+becomes the admin automatically).
+
+---
+
+## ☁️ Deploy to Vercel (free)
+
+1. Push this repo to GitHub.
+2. On [vercel.com](https://vercel.com): **Add New → Project** → import the repo.
+3. Add the environment variables (below) in **Settings → Environment Variables**.
+4. Deploy. Vercel gives you a URL and auto-redeploys on every push to `main`.
+5. First time only: run `npm run db:push` locally against the same
+   `DATABASE_URL` so the production database has the tables.
+
+---
+
+## 🔑 Environment variables
+
+| Variable                     | Required | What it's for                                                        |
+| ---------------------------- | :------: | -------------------------------------------------------------------- |
+| `DATABASE_URL`               |   ✅     | Postgres connection string.                                          |
+| `FAMILY_INVITE_CODE`         |   ➖     | Code new members must enter to sign up. Blank = open sign-up.        |
+| `GOOGLE_CLIENT_ID`           |   ➖     | Google OAuth client ID (for "Continue with Google").                 |
+| `GOOGLE_CLIENT_SECRET`       |   ➖     | Google OAuth client secret.                                          |
+| `NEXT_PUBLIC_GOOGLE_ENABLED` |   ➖     | Set to `true` to show the Google sign-in button.                     |
+| `VISION_PROVIDER`            |   ➖     | `anthropic` or `openai` for cover-photo AI.                          |
+| `ANTHROPIC_API_KEY`          |   ➖     | Needed if `VISION_PROVIDER=anthropic`.                               |
+| `OPENAI_API_KEY`             |   ➖     | Needed if `VISION_PROVIDER=openai`.                                  |
+
+Only `DATABASE_URL` is required — barcode scanning, ISBN and name search all work
+without any keys. Add the Google and vision keys to enable those extras.
+
+### Setting up Google sign-in
+
+Create an **OAuth client (Web application)** at
+[Google Cloud Console](https://console.cloud.google.com) → *APIs & Services →
+Credentials*, and add these **authorised redirect URIs**:
+
+```
+https://YOUR-APP.vercel.app/api/auth/google/callback
+http://localhost:3000/api/auth/google/callback
+```
+
+While the Google app is in "testing" mode, only emails added as **test users**
+(in the OAuth consent screen) can use the Google button — everyone else signs in
+with email + password.
+
+---
+
+## 👑 Members, roles & approval
+
+- The **first person to register becomes the admin** and is active immediately.
+- Everyone after them needs the invite code, then starts as **pending** until the
+  admin approves them from the **Admin** page.
+- The admin can **approve**, **turn off access**, **make admin / make normal**,
+  and **delete** members.
+- Deleting a member keeps any books they'd shifted to the Home Library and
+  removes the rest.
+
+**Promote an account to admin manually** (e.g. if the auto-admin didn't apply):
 
 ```bash
-npm run dev
+DATABASE_URL="postgres://…" node scripts/make-admin.mjs you@email.com
 ```
 
-Open http://localhost:3000, click **Join**, and create the first account (use your
-`FAMILY_INVITE_CODE` if you set one). You're in. 🎉
-
 ---
 
-## ☁️ Put it on the internet for free (Vercel)
-
-1. Push this folder to a **GitHub** repo.
-2. Go to [vercel.com](https://vercel.com) → **Add New → Project** → import the repo.
-3. In the project's **Settings → Environment Variables**, add the same values from
-   your `.env` (`DATABASE_URL`, `FAMILY_INVITE_CODE`, and the AI keys if you use
-   them).
-4. Deploy. Vercel gives you a URL like `your-library.vercel.app` — share it with
-   the family.
-5. First time only: run `npm run db:push` locally (pointing at the same
-   `DATABASE_URL`) so the production database has the tables. (Neon's free tier is
-   reachable from your laptop and from Vercel.)
-
-> Tip: Neon has a one-click **Vercel integration** that sets `DATABASE_URL` for you.
-
----
-
-## 🤖 Turning on "photo of the cover → auto-fill" (optional)
-
-The barcode scanner and ISBN/name lookup work **without any API key**. To also
-identify a book from a **photo of its front cover**, add an AI key:
-
-- Set `VISION_PROVIDER="anthropic"` and `ANTHROPIC_API_KEY=...`
-  (get one at https://console.anthropic.com), **or**
-- Set `VISION_PROVIDER="openai"` and `OPENAI_API_KEY=...`
-
-If no key is present, the app simply skips AI and lets you type the details — every
-field is editable anyway.
-
----
-
-## 👑 Members & admin approval
-
-- The **first person to register becomes the admin** and is active right away.
-- Everyone after them needs the **family invite code** to sign up, and then
-  starts as **pending** — they can't log in until the admin approves them.
-- The admin gets an **Admin** page (top nav) listing everyone waiting, with
-  **Approve**, **Turn off access**, and **Make admin** buttons.
-- Already created an account before this feature existed? Promote it once with:
-  `DATABASE_URL="postgres://…" node scripts/make-admin.mjs <your-username>`
-
-## 🔁 How borrowing works (the states)
+## 🔁 How borrowing works
 
 1. Someone taps **Ask to borrow** on a copy → the holder sees it under
    *Requests → Waiting for you*.
-2. Holder taps **Approve** and then **Mark as sent** (post/hand it over).
-3. Borrower taps **I got it** → they become the copy's new holder (the catalog now
-   shows the book is with them, in their city).
+2. Holder taps **Approve**, then **Mark as sent**.
+3. Borrower taps **I got it** → they become the copy's new holder (the catalog
+   now shows the book is with them, in their city).
 4. When it goes back, either person taps **Mark returned** → it returns to the
    owner.
 
-The **owner** never changes (whoever bought it). The **holder** changes as the book
-travels — that's how the app always knows where a book physically is.
+The **owner** never changes (whoever bought it). The **holder** changes as the
+book travels — that's how the app always knows where a book physically is. A book
+can also live at the **🏠 Home Library** instead of with a person.
 
 ---
 
-## 🗂️ Project layout
+## 🗂️ Project structure
 
 ```
-app/                Next.js pages + API routes
-  api/              auth, book lookup (isbn + vision), books, copies, requests, reading
-  add/              add-a-book screen (barcode / photo / search)
-  books/[id]/       book detail: copies, holders, borrow, reading
-  catalog/          searchable family catalog
-  requests/         incoming + outgoing borrow requests
-  members/          who's in the library and what they hold
-  reading/          your reading list
-components/          small client widgets (borrow, request actions, reading, etc.)
+app/
+  api/                 auth (email + Google), book lookup, books, copies,
+                       requests, reading, admin
+  admin/               admin page: approve / roles / delete members
+  add/                 add-a-book screen (barcode / photo / search)
+  books/[id]/          book detail: copies, holders, borrow, home library
+  catalog/             searchable family catalog
+  requests/            incoming + outgoing borrow requests
+  members/             who's in the library and how much they hold
+  reading/             your reading list
+components/             small client widgets
 lib/
-  schema.ts         database tables (Drizzle)
-  db.ts             database connection
-  auth.ts           passwords + login sessions
-  books.ts          Google Books lookup + vision-AI cover reading
-drizzle/            generated SQL migration
+  schema.ts            database tables (Drizzle)
+  db.ts                database connection
+  auth.ts              passwords + login sessions
+  books.ts             Google Books lookup + vision-AI cover reading
+  homeLibrary.ts       the shared Home Library account
+scripts/
+  make-admin.mjs       promote a user to admin
+drizzle/               generated SQL migrations
 ```
 
 ---
@@ -167,7 +192,6 @@ drizzle/            generated SQL migration
 ## 🔒 Notes
 
 - Passwords are hashed (bcrypt); logins use secure http-only cookie sessions.
-- The family invite code is the simple gate for who can join — change it any time
-  in your environment variables.
-- Book cover images are loaded from Google Books by URL, so nothing large is stored
-  in your database.
+- Book cover images are loaded from Google Books by URL, so nothing large is
+  stored in the database.
+- Change the family invite code any time in your environment variables.
