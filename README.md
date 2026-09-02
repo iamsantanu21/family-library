@@ -15,8 +15,9 @@ you save.
 
 ## ✨ Features
 
-- **Sign in with Google or email + password.** New members need the family
-  invite code, then wait for an admin to approve them.
+- **Sign in with Google or email + password.** Sign-up is open by default; new
+  members simply wait for an admin to approve them before they can log in. (You
+  can optionally require a shared invite code as a first gate — see below.)
 - **Add a book 3 ways** — 📷 barcode scan → ISBN lookup, 🖼️ cover photo → AI
   identification, or 🔎 search by title/author. Details auto-fill and stay fully
   editable.
@@ -44,10 +45,12 @@ you save.
   double-buying.
 - **Request badge** — the nav shows a count on **Requests** whenever something is
   waiting on you: a borrow to approve or send, or an incoming book to confirm.
+  This is the built-in, zero-setup way everyone stays notified — no email needed.
 - **📧 Email notifications** (optional) — when set up with a Resend key, the app
-  emails people on the moments that matter: a borrow request comes in, a request
-  is approved / sent / returned, a book is sent straight to you, or a new
-  wishlist item is added. Leave the key unset and the app just sends nothing.
+  *also* emails people on the moments that matter: a borrow request comes in, a
+  request is approved / sent / returned, a book is sent straight to you, or a new
+  wishlist item is added. Leave the key unset and the app just sends nothing
+  (everyone still gets the in-app Request badge above).
 - **Borrow / exchange** — ask to borrow a copy from whoever holds it; the holder
   approves and sends; you confirm you received it; mark it returned when it goes
   back.
@@ -131,7 +134,7 @@ becomes the admin automatically).
 | Variable                     | Required | What it's for                                                        |
 | ---------------------------- | :------: | -------------------------------------------------------------------- |
 | `DATABASE_URL`               |   ✅     | Postgres connection string.                                          |
-| `FAMILY_INVITE_CODE`         |   ➖     | Code new members must enter to sign up. Blank = open sign-up.        |
+| `FAMILY_INVITE_CODE`         |   ➖     | Optional shared code to sign up. Set it and the invite field appears + is required; leave it unset/blank for open sign-up (the field hides itself). |
 | `GOOGLE_CLIENT_ID`           |   ➖     | Google OAuth client ID (for "Continue with Google").                 |
 | `GOOGLE_CLIENT_SECRET`       |   ➖     | Google OAuth client secret.                                          |
 | `NEXT_PUBLIC_GOOGLE_ENABLED` |   ➖     | Set to `true` to show the Google sign-in button.                     |
@@ -175,13 +178,21 @@ Emails are sent for: a borrow request received, a request approved / sent /
 returned, a book sent straight to a member, and a new wishlist item. Members
 only get emails if their account has an email address.
 
+**No domain? Email is optional.** Without a verified domain, Resend's test mode
+only delivers to your own Resend-account address — so family-wide email needs a
+domain. If you'd rather not bother, just leave `RESEND_API_KEY` unset: the app
+sends nothing and everyone relies on the in-app **Requests** badge, which needs
+no setup at all.
+
 ---
 
 ## 👑 Members, roles & approval
 
 - The **first person to register becomes the admin** and is active immediately.
-- Everyone after them needs the invite code, then starts as **pending** until the
-  admin approves them from the **Admin** page.
+- Everyone after them starts as **pending** until the admin approves them from
+  the **Admin** page — this approval is the real gate that keeps strangers out.
+- Optionally set `FAMILY_INVITE_CODE` to also require a shared code at sign-up as
+  a first barrier; unset it and sign-up is open (still admin-approved).
 - The admin can **approve**, **turn off access**, **make admin / make normal**,
   and **delete** members.
 - Deleting a member keeps any books they'd shifted to the Home Library and
@@ -216,6 +227,26 @@ direct flow: on the **My Books** page you pick books you already hold and hand
 them off immediately — to the Home Library or to any active member. You can
 attach a **courier**, **tracking number**, and a **note**; each send is recorded
 in the `transfers` table and shown on the book's page as its latest handoff.
+
+---
+
+## 🧪 Testing
+
+`scripts/seed-demo.mjs` seeds 3 demo members with 2 books each and then runs
+**every operation** the app supports — send to Home Library, send to a member
+(with courier/tracking/note), take from Home Library, bulk borrow requests, the
+full approve → ship → receive → return handshake, cancel, delete copy, delete
+title (with cascade), the wishlist add / owned-detection / remove, and the admin
+approve / reject / role-toggle / delete-member flows — printing a pass/fail log
+and a final state summary.
+
+```bash
+DATABASE_URL="postgres://…" node scripts/seed-demo.mjs           # seed + self-test
+DATABASE_URL="postgres://…" node scripts/seed-demo.mjs cleanup   # remove all demo data
+```
+
+It's re-runnable (it clears its own demo data first) and demo logins use the
+password `demo1234`.
 
 ---
 
@@ -257,4 +288,5 @@ drizzle/               generated SQL migrations
 - Passwords are hashed (bcrypt); logins use secure http-only cookie sessions.
 - Book cover images are loaded from Google Books by URL, so nothing large is
   stored in the database.
-- Change the family invite code any time in your environment variables.
+- Sign-up gating is controlled entirely by `FAMILY_INVITE_CODE`: set it to
+  require a code, remove it for open sign-up. Admin approval always applies.
